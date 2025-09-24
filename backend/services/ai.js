@@ -1,331 +1,328 @@
-// services/ai.js - Enhanced AI Service with GROQ Integration
+
+// services/ai.js - Updated for unified chat experience
 const Groq = require('groq-sdk');
+const config = require('../config/config');
+
 
 class AIService {
-    constructor() {
-        this.groq = new Groq({
-            apiKey: process.env.GROQ_API_KEY // Add this to your .env file
-        });
-        
-        this.models = {
-            fast: "llama-3.1-8b-instant",      // For quick responses
-            balanced: "llama-3.1-70b-versatile", // For complex tasks
-            creative: "mixtral-8x7b-32768"      // For creative content
-        };
+  constructor() {
+    this.groq = null;
+    this.isInitialized = false;
+    this.initializeGroq();
+  }
+
+  initializeGroq() {
+    try {
+      const apiKey = process.env.GROQ_API_KEY;
+      
+      if (!apiKey) {
+        console.error('❌ GROQ_API_KEY not found in environment variables');
+        return;
+      }
+
+      this.groq = new Groq({ apiKey });
+      this.isInitialized = true;
+      console.log('✅ GROQ AI initialized successfully');
+      
+      this.testConnection();
+    } catch (error) {
+      console.error('❌ GROQ initialization failed:', error.message);
+      this.isInitialized = false;
+    }
+  }
+
+  async testConnection() {
+    try {
+      await this.groq.chat.completions.create({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "moonshotai/kimi-k2-instruct-0905",
+        max_tokens: 10
+      });
+      console.log('✅ GROQ connection test successful');
+    } catch (error) {
+      console.error('❌ GROQ connection test failed:', error.message);
+      this.isInitialized = false;
+    }
+  }
+
+  // Unified chat response - handles all types of questions
+  async generateChatResponse(message, context = {}) {
+    console.log(`💬 Chat request: ${message.substring(0, 50)}...`);
+    
+    if (!this.isInitialized) {
+      console.log('⚠️ AI not initialized, using fallback');
+      return this.generateFallbackChatResponse(message);
     }
 
-    async generateResponse(prompt, context = null, model = 'balanced') {
-        try {
-            const systemPrompt = this.getSystemPrompt(context);
-            
-            const completion = await this.groq.chat.completions.create({
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt }
-                ],
-                model: this.models[model],
-                temperature: 0.7,
-                max_tokens: 2048,
-            });
+    try {
+      const { previousMessages = [] } = context;
+      
+      // Create a comprehensive system prompt that handles all types of questions
+      const systemPrompt = this.createUnifiedSystemPrompt();
+      
+      // Build conversation history
+      const conversationHistory = this.buildConversationHistory(previousMessages);
+      
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...conversationHistory,
+        { role: "user", content: message }
+      ];
 
-            return completion.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
-        } catch (error) {
-            console.error('GROQ API Error:', error);
-            throw new Error('AI service temporarily unavailable');
-        }
+      const completion = await this.groq.chat.completions.create({
+        messages,
+        model: "moonshotai/kimi-k2-instruct-0905",
+        temperature: 0.7,
+        max_tokens: 2000
+      });
+
+      const response = completion.choices[0].message.content;
+      console.log('✅ Chat response generated successfully');
+      return response;
+
+    } catch (error) {
+      console.error('❌ AI chat response failed:', error.message);
+      return this.generateFallbackChatResponse(message);
+    }
+  }
+
+  createUnifiedSystemPrompt() {
+    return `You are an intelligent AI assistant for Learnify, an educational platform. You are designed to help users with a wide variety of questions and topics, similar to Claude AI.
+
+Your capabilities include:
+
+**Programming & Technology:**
+- Help with coding in any programming language (JavaScript, Python, Java, C++, React, Node.js, etc.)
+- Debug code and explain errors
+- Provide code examples and best practices
+- Explain algorithms, data structures, and software concepts
+- Help with web development, databases, and system design
+
+**Academic Subjects:**
+- Mathematics (algebra, calculus, statistics, etc.)
+- Science (physics, chemistry, biology)
+- Computer Science theory
+- Engineering concepts
+- Business and economics
+
+**Learning & Education:**
+- Break down complex topics into understandable parts
+- Create study plans and learning strategies
+- Explain concepts with analogies and examples
+- Help with homework and assignments
+- Provide practice problems and solutions
+
+**General Knowledge:**
+- Answer questions on history, geography, literature
+- Explain current events and trends
+- Help with writing and communication
+- Provide research assistance
+- General problem-solving
+
+**Your Approach:**
+- Always provide accurate, helpful, and educational responses
+- Adapt your explanation level based on the complexity of the question
+- Use examples and practical applications when helpful
+- If you're unsure about something, say so honestly
+- For coding questions, provide clean, commented code examples
+- For theoretical questions, explain concepts clearly and thoroughly
+- Be conversational but professional
+- Encourage learning and curiosity
+
+**Important Guidelines:**
+- If someone asks about something potentially harmful, politely decline and suggest safer alternatives
+- For medical, legal, or financial advice, remind users to consult qualified professionals
+- Always aim to educate and help users understand, not just provide answers
+- Be patient and supportive, especially with beginners
+
+Respond naturally and conversationally, adapting to whatever type of question the user asks.`;
+  }
+
+  buildConversationHistory(previousMessages) {
+    if (!previousMessages || previousMessages.length === 0) return [];
+    
+    return previousMessages.slice(-6).map(msg => {
+      if (msg.userMessage && msg.aiResponse) {
+        return [
+          { role: "user", content: msg.userMessage },
+          { role: "assistant", content: msg.aiResponse }
+        ];
+      }
+      return [];
+    }).flat().filter(msg => msg.content);
+  }
+
+  generateFallbackChatResponse(message) {
+    return `I understand you're asking about "${message}". While I'm experiencing some connectivity issues with my AI services right now, I'm still here to help!
+
+For immediate assistance, I recommend:
+- Breaking down your question into specific parts
+- Checking official documentation for technical topics
+- Looking for examples and tutorials online
+
+Could you provide more details about what you'd like to learn? I'll do my best to guide you in the right direction.
+
+(AI services will be fully restored soon for better responses)`;
+  }
+
+  // Keep the existing quiz generation method unchanged
+  async generateQuiz(topic, difficulty, questionCount) {
+    console.log(`🎯 Generating quiz: ${topic}, ${difficulty}, ${questionCount} questions`);
+    
+    if (!this.isInitialized) {
+      console.log('⚠️ AI not initialized, using fallback');
+      return this.generateFallbackQuiz(topic, difficulty, questionCount);
     }
 
-    getSystemPrompt(context) {
-        const basePrompt = `You are Learnify AI, an expert learning assistant specializing in programming, technology, and academic subjects. You provide clear, practical, and educational responses.`;
-        
-        if (!context) return basePrompt;
-        
-        const contextPrompts = {
-            tutor: `${basePrompt} Focus on structured learning, break down complex topics step-by-step, and provide practical examples.`,
-            code: `${basePrompt} Help with programming questions, provide clean code examples, explain concepts clearly, and suggest best practices.`,
-            quiz: `${basePrompt} Create educational quiz questions that test understanding rather than memorization. Include clear explanations.`,
-            general: basePrompt
-        };
-        
-        return contextPrompts[context.mode] || basePrompt;
+    try {
+      const prompt = `Create a ${difficulty} level quiz about "${topic}" with exactly ${questionCount} multiple choice questions.
+
+Requirements:
+- Each question should test practical knowledge of ${topic}
+- Provide 4 realistic answer options per question
+- Include clear explanations for why the correct answer is right
+- Make questions specific to ${topic}, not generic
+- Ensure ${difficulty} difficulty level is appropriate
+
+Return ONLY valid JSON in this exact format (no other text):
+{
+  "title": "${topic} ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Quiz",
+  "description": "Test your ${difficulty} level knowledge of ${topic}",
+  "questions": [
+    {
+      "question": "Specific question about ${topic}?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct": 0,
+      "explanation": "Detailed explanation of why this is correct"
+    }
+  ]
+}`;
+
+      const completion = await this.groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert quiz creator. Generate accurate, educational quizzes with specific questions. Always return valid JSON only, no additional text."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        model: "moonshotai/kimi-k2-instruct-0905",
+        temperature: 0.7,
+        max_tokens: 3000
+      });
+
+      const responseText = completion.choices[0].message.content.trim();
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
+      if (!jsonMatch) {
+        throw new Error('No valid JSON found in AI response');
+      }
+
+      const quizData = JSON.parse(jsonMatch[0]);
+      
+      if (!quizData.questions || !Array.isArray(quizData.questions) || quizData.questions.length !== questionCount) {
+        throw new Error('Invalid quiz structure from AI');
+      }
+
+      const processedQuiz = {
+        title: quizData.title || `${topic} ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Quiz`,
+        description: quizData.description || `Test your ${difficulty} level knowledge of ${topic}`,
+        timeLimit: questionCount * 60,
+        passingScore: 70,
+        questions: quizData.questions.map((q, index) => ({
+          id: index + 1,
+          question: q.question,
+          options: q.options,
+          correct: q.correct,
+          explanation: q.explanation || 'No explanation provided'
+        }))
+      };
+
+      console.log('✅ Quiz generated successfully with AI');
+      return processedQuiz;
+
+    } catch (error) {
+      console.error('❌ AI quiz generation failed:', error.message);
+      return this.generateFallbackQuiz(topic, difficulty, questionCount);
+    }
+  }
+
+  generateFallbackQuiz(topic, difficulty, questionCount) {
+    console.log('🔄 Using fallback quiz generation');
+    
+    const topicQuestions = this.getTopicSpecificQuestions(topic, difficulty);
+    
+    const questions = [];
+    for (let i = 0; i < questionCount; i++) {
+      const questionTemplate = topicQuestions[i % topicQuestions.length];
+      questions.push({
+        id: i + 1,
+        question: questionTemplate.question,
+        options: questionTemplate.options,
+        correct: questionTemplate.correct,
+        explanation: questionTemplate.explanation
+      });
     }
 
-    async generateRoadmap(topic, level = 'beginner', duration = 'medium') {
-        const prompt = `Create a comprehensive learning roadmap for "${topic}" at ${level} level.
-        Duration preference: ${duration}
-        
-        Provide a detailed JSON response with:
+    return {
+      title: `${topic} ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Quiz`,
+      description: `Test your ${difficulty} level knowledge of ${topic}`,
+      timeLimit: questionCount * 60,
+      passingScore: 70,
+      questions
+    };
+  }
+
+  getTopicSpecificQuestions(topic, difficulty) {
+    const topicLower = topic.toLowerCase();
+    
+    if (topicLower.includes('javascript')) {
+      return [
         {
-            "title": "Learning roadmap title",
-            "description": "Brief description of what learners will achieve",
-            "estimatedDuration": "Time estimate based on duration preference",
-            "difficulty": "${level}",
-            "modules": [
-                {
-                    "title": "Module name",
-                    "description": "What this module covers",
-                    "lessons": ["Lesson 1", "Lesson 2", "Lesson 3"],
-                    "duration": "Module duration",
-                    "difficulty": "Module difficulty level",
-                    "learningObjectives": ["Objective 1", "Objective 2"],
-                    "practicalProjects": ["Project description"]
-                }
-            ],
-            "prerequisites": ["Required knowledge"],
-            "skillsGained": ["Skill 1", "Skill 2"],
-            "careerPaths": ["Possible career directions"],
-            "resources": {
-                "documentation": ["Official docs"],
-                "tools": ["Recommended tools"],
-                "communities": ["Learning communities"]
-            }
-        }
-        
-        Make it practical and actionable for ${level} learners.`;
-
-        try {
-            const response = await this.generateResponse(prompt, { mode: 'tutor' }, 'balanced');
-            return JSON.parse(this.extractJSON(response));
-        } catch (error) {
-            console.error('Roadmap generation error:', error);
-            return this.getFallbackRoadmap(topic, level, duration);
-        }
-    }
-
-    async generateQuiz(topic, difficulty = 'medium', questionCount = 5, focusAreas = []) {
-        const focusText = focusAreas.length > 0 ? `Focus on: ${focusAreas.join(', ')}` : '';
-        
-        const prompt = `Generate a ${difficulty} difficulty quiz about "${topic}" with exactly ${questionCount} questions.
-        ${focusText}
-        
-        Requirements:
-        - Questions should test practical understanding, not just memorization
-        - Include diverse question types (concepts, application, problem-solving)
-        - Provide detailed explanations for correct answers
-        - Make incorrect options plausible but clearly wrong
-        
-        Return as JSON:
+          question: "What is the correct way to declare a variable in modern JavaScript?",
+          options: ["var x = 5;", "let x = 5;", "const x = 5;", "Both let and const"],
+          correct: 3,
+          explanation: "Both 'let' and 'const' are modern ways to declare variables in JavaScript."
+        },
         {
-            "title": "${topic} Quiz",
-            "description": "Quiz description",
-            "difficulty": "${difficulty}",
-            "timeLimit": 300,
-            "passingScore": 70,
-            "questions": [
-                {
-                    "id": 1,
-                    "question": "Clear, specific question",
-                    "type": "multiple-choice",
-                    "options": ["Option A", "Option B", "Option C", "Option D"],
-                    "correct": 0,
-                    "explanation": "Detailed explanation of why this is correct",
-                    "difficulty": "${difficulty}",
-                    "tags": ["tag1", "tag2"]
-                }
-            ]
-        }`;
-
-        try {
-            const response = await this.generateResponse(prompt, { mode: 'quiz' }, 'balanced');
-            return JSON.parse(this.extractJSON(response));
-        } catch (error) {
-            console.error('Quiz generation error:', error);
-            return this.getFallbackQuiz(topic, difficulty, questionCount);
+          question: "What does the '===' operator do in JavaScript?",
+          options: ["Assigns a value", "Checks equality without type conversion", "Checks equality with type conversion", "Compares references"],
+          correct: 1,
+          explanation: "The '===' operator performs strict equality comparison without type conversion."
         }
+      ];
     }
+    
+    return [
+      {
+        question: `What is a fundamental concept when learning ${topic}?`,
+        options: ["Understanding the basics", "Memorizing syntax", "Skipping theory", "Avoiding practice"],
+        correct: 0,
+        explanation: "Understanding fundamental concepts provides a solid foundation for learning."
+      }
+    ];
+  }
 
-    async generateCourseContent(roadmapData, moduleIndex) {
-        const module = roadmapData.modules[moduleIndex];
-        const prompt = `Generate comprehensive course content for the module "${module.title}" from the ${roadmapData.title} learning path.
-        
-        Module details:
-        - Description: ${module.description}
-        - Lessons: ${module.lessons.join(', ')}
-        - Difficulty: ${module.difficulty}
-        - Duration: ${module.duration}
-        
-        Create detailed content with:
-        {
-            "moduleTitle": "${module.title}",
-            "lessons": [
-                {
-                    "title": "Lesson title",
-                    "content": "Detailed lesson content with explanations and examples",
-                    "codeExamples": ["Code snippet 1", "Code snippet 2"],
-                    "exercises": [
-                        {
-                            "title": "Exercise title",
-                            "description": "What to do",
-                            "solution": "Solution explanation"
-                        }
-                    ],
-                    "keyPoints": ["Important point 1", "Important point 2"],
-                    "duration": "Estimated time"
-                }
-            ],
-            "assessments": [
-                {
-                    "type": "quiz",
-                    "questions": 3,
-                    "topics": ["Topic covered"]
-                }
-            ],
-            "resources": ["Additional resources"],
-            "nextSteps": "What comes next"
-        }`;
-
-        try {
-            const response = await this.generateResponse(prompt, { mode: 'tutor' }, 'balanced');
-            return JSON.parse(this.extractJSON(response));
-        } catch (error) {
-            console.error('Course content generation error:', error);
-            return this.getFallbackCourseContent(module);
-        }
+  async checkAIService() {
+    if (!this.isInitialized) {
+      return { status: 'unavailable', provider: 'groq', error: 'API key not configured' };
     }
-
-    async generateAIResponse(message, context = {}) {
-        let prompt = message;
-        
-        // Add context awareness
-        if (context.previousMessages?.length > 0) {
-            const recentMessages = context.previousMessages.slice(-3)
-                .map(msg => `${msg.type}: ${msg.content}`)
-                .join('\n');
-            prompt = `Previous conversation:\n${recentMessages}\n\nCurrent question: ${message}`;
-        }
-
-        if (context.currentTopic) {
-            prompt = `Context: We're discussing ${context.currentTopic}.\n${prompt}`;
-        }
-
-        const systemContext = {
-            mode: context.mode || 'general',
-            userLevel: context.userPreferences?.learningLevel || 'intermediate'
-        };
-
-        return await this.generateResponse(prompt, systemContext, 'fast');
+    
+    try {
+      await this.groq.chat.completions.create({
+        messages: [{ role: "user", content: "test" }],
+        model: "moonshotai/kimi-k2-instruct-0905",
+        max_tokens: 5
+      });
+      
+      return { status: 'connected', provider: 'groq' };
+    } catch (error) {
+      return { status: 'error', provider: 'groq', error: error.message };
     }
-
-    // Utility methods
-    extractJSON(text) {
-        try {
-            // Try to find JSON in the response
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                return jsonMatch[0];
-            }
-            return text;
-        } catch (error) {
-            throw new Error('Could not extract JSON from AI response');
-        }
-    }
-
-    getFallbackRoadmap(topic, level, duration) {
-        const durationMap = {
-            short: '4-6 weeks',
-            medium: '8-12 weeks',
-            long: '16-20 weeks'
-        };
-
-        return {
-            title: `${topic} Learning Roadmap`,
-            description: `Complete learning path for ${topic} from ${level} to advanced level`,
-            estimatedDuration: durationMap[duration] || '8-12 weeks',
-            difficulty: level,
-            modules: [
-                {
-                    title: `${topic} Fundamentals`,
-                    description: `Core concepts and basics of ${topic}`,
-                    lessons: ['Introduction', 'Basic Concepts', 'Syntax and Structure', 'First Project'],
-                    duration: '2-3 weeks',
-                    difficulty: 'Beginner',
-                    learningObjectives: [`Understand ${topic} basics`, 'Write simple programs'],
-                    practicalProjects: [`Simple ${topic} project`]
-                },
-                {
-                    title: `Intermediate ${topic}`,
-                    description: `Building on the fundamentals with advanced features`,
-                    lessons: ['Advanced Features', 'Best Practices', 'Common Patterns', 'Real-world Applications'],
-                    duration: '3-4 weeks',
-                    difficulty: 'Intermediate',
-                    learningObjectives: [`Apply ${topic} professionally`, 'Solve complex problems'],
-                    practicalProjects: [`Intermediate ${topic} application`]
-                },
-                {
-                    title: `Advanced ${topic} & Specialization`,
-                    description: `Master level concepts and specialization areas`,
-                    lessons: ['Expert Techniques', 'Performance Optimization', 'Architecture Patterns', 'Capstone Project'],
-                    duration: '3-5 weeks',
-                    difficulty: 'Advanced',
-                    learningObjectives: [`Master ${topic}`, 'Lead technical projects'],
-                    practicalProjects: [`Advanced ${topic} system`]
-                }
-            ],
-            prerequisites: level === 'beginner' ? ['Basic computer literacy'] : [`Basic ${topic} knowledge`],
-            skillsGained: [`${topic} Development`, 'Problem Solving', 'Software Architecture'],
-            careerPaths: ['Software Developer', 'Technical Lead', 'Solution Architect'],
-            resources: {
-                documentation: [`Official ${topic} documentation`],
-                tools: ['VS Code', 'Git', 'Package managers'],
-                communities: [`${topic} community forums`, 'Stack Overflow']
-            }
-        };
-    }
-
-    getFallbackQuiz(topic, difficulty, questionCount) {
-        const questions = [];
-        for (let i = 0; i < questionCount; i++) {
-            questions.push({
-                id: i + 1,
-                question: `What is a key concept in ${topic}?`,
-                type: 'multiple-choice',
-                options: [
-                    'Fundamental principle',
-                    'Secondary feature',
-                    'Optional component',
-                    'Deprecated method'
-                ],
-                correct: 0,
-                explanation: `The fundamental principle is the core concept that everything else builds upon in ${topic}.`,
-                difficulty: difficulty,
-                tags: [topic.toLowerCase(), 'concepts']
-            });
-        }
-
-        return {
-            title: `${topic} Quiz`,
-            description: `Test your knowledge of ${topic} concepts`,
-            difficulty: difficulty,
-            timeLimit: questionCount * 60, // 1 minute per question
-            passingScore: 70,
-            questions: questions
-        };
-    }
-
-    getFallbackCourseContent(module) {
-        return {
-            moduleTitle: module.title,
-            lessons: module.lessons.map((lesson, index) => ({
-                title: lesson,
-                content: `This lesson covers ${lesson.toLowerCase()} in detail. You'll learn the key concepts and practical applications.`,
-                codeExamples: [`// Example code for ${lesson}`],
-                exercises: [{
-                    title: `Practice ${lesson}`,
-                    description: `Complete exercises related to ${lesson}`,
-                    solution: 'Work through the examples step by step'
-                }],
-                keyPoints: [`Key concept from ${lesson}`, `Important technique in ${lesson}`],
-                duration: '30-45 minutes'
-            })),
-            assessments: [{
-                type: 'quiz',
-                questions: 5,
-                topics: [module.title]
-            }],
-            resources: ['Official documentation', 'Additional tutorials'],
-            nextSteps: 'Continue to the next module when ready'
-        };
-    }
+  }
 }
 
 module.exports = new AIService();
