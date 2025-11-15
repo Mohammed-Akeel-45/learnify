@@ -306,6 +306,206 @@ Return ONLY valid JSON in this exact format (no other text):
     ];
   }
 
+  // ---- generateRoadmap ----
+async generateRoadmap(topic, level, duration) {
+  console.log(`🗺️ Generating roadmap for: ${topic}`);
+
+  if (!this.isInitialized) {
+    return this.generateFallbackRoadmap(topic, level, duration);
+  }
+
+  try {
+    const durationMap = {
+      short: '4-6 weeks',
+      medium: '8-12 weeks',
+      long: '16-20 weeks'
+    };
+
+    const prompt = `Create a comprehensive learning roadmap for "${topic}" at ${level} level.
+Duration: ${durationMap[duration]}
+Generate a structured learning path with:
+
+3-5 major modules
+Each module should have: title, description, duration (in weeks), and 4-6 key lessons
+Prerequisites and skills to be gained
+Practical projects for each module
+
+Return ONLY valid JSON in this exact format:
+{
+"title": "Complete ${topic} Learning Path",
+"description": "A comprehensive ${level}-level roadmap for mastering ${topic}",
+"estimatedDuration": "${durationMap[duration]}",
+"modules": [
+{
+"title": "Module name",
+"description": "What you'll learn",
+"duration": "2-3 weeks",
+"lessons": ["Lesson 1", "Lesson 2", "Lesson 3", "Lesson 4"],
+"project": "Practical project description"
+}
+],
+"prerequisites": ["Prerequisite 1", "Prerequisite 2"],
+"skills": ["Skill 1", "Skill 2", "Skill 3"]
+}`;
+
+    const completion = await this.groq.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert curriculum designer. Create detailed, practical learning roadmaps. Return only valid JSON."
+        },
+        { role: "user", content: prompt }
+      ],
+      model: "moonshotai/kimi-k2-instruct-0905",
+      temperature: 0.7,
+      max_tokens: 3000
+    });
+
+    const responseText = completion.choices[0].message.content.trim();
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) throw new Error('No valid JSON in response');
+
+    const roadmapData = JSON.parse(jsonMatch[0]);
+
+    console.log('✅ Roadmap generated successfully');
+    return roadmapData;
+
+  } catch (error) {
+    console.error('❌ AI roadmap generation failed:', error.message);
+    return this.generateFallbackRoadmap(topic, level, duration);
+  }
+}
+
+// ---- Fallback Roadmap ----
+generateFallbackRoadmap(topic, level, duration) {
+  const durationMap = {
+    short: '4-6 weeks',
+    medium: '8-12 weeks',
+    long: '16-20 weeks'
+  };
+
+  return {
+    title: `${topic} Learning Path - ${level} Level`,
+    description: `A structured ${level}-level roadmap for learning ${topic}`,
+    estimatedDuration: durationMap[duration],
+    modules: [
+      {
+        title: `${topic} Fundamentals`,
+        description: 'Core concepts and basic principles',
+        duration: '2-3 weeks',
+        lessons: ['Introduction', 'Basic Concepts', 'Core Principles', 'Practice'],
+        project: 'Build a simple project using fundamentals'
+      },
+      {
+        title: `Intermediate ${topic}`,
+        description: 'Advanced concepts and techniques',
+        duration: '3-4 weeks',
+        lessons: ['Advanced Topics', 'Best Practices', 'Real-world Applications', 'Optimization'],
+        project: 'Create a medium-complexity application'
+      },
+      {
+        title: `Mastering ${topic}`,
+        description: 'Expert-level skills and patterns',
+        duration: '2-3 weeks',
+        lessons: ['Design Patterns', 'Architecture', 'Performance', 'Production Ready'],
+        project: 'Build a production-ready application'
+      }
+    ],
+    prerequisites: level === 'beginner'
+      ? ['Basic computer skills']
+      : [`Understanding of ${topic} basics`],
+    skills: [`${topic} development`, 'Problem solving', 'Best practices', 'Project development']
+  };
+}
+
+// ---- generateCourseContent ----
+async generateCourseContent(moduleTitle, moduleDescription, level) {
+  console.log(`📚 Generating course content for: ${moduleTitle}`);
+
+  if (!this.isInitialized) {
+    return this.generateFallbackCourseContent(moduleTitle, moduleDescription);
+  }
+
+  try {
+    const prompt = `Create detailed course content for: "${moduleTitle}"
+Description: ${moduleDescription}
+Level: ${level}
+Generate a comprehensive course with:
+
+5-8 lessons covering the module thoroughly
+Each lesson should have: title, content (detailed explanation), examples, and practice exercises
+Include key takeaways for each lesson
+
+Return ONLY valid JSON:
+{
+"title": "${moduleTitle}",
+"description": "${moduleDescription}",
+"lessons": [
+{
+"title": "Lesson title",
+"content": "Detailed lesson content with explanations",
+"examples": ["Example 1", "Example 2"],
+"exercises": ["Exercise 1", "Exercise 2"],
+"keyTakeaways": ["Takeaway 1", "Takeaway 2"]
+}
+]
+}`;
+
+    const completion = await this.groq.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert course content creator. Generate detailed, educational content. Return only valid JSON."
+        },
+        { role: "user", content: prompt }
+      ],
+      model: "moonshotai/kimi-k2-instruct-0905",
+      temperature: 0.7,
+      max_tokens: 4000
+    });
+
+    const responseText = completion.choices[0].message.content.trim();
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) throw new Error('No valid JSON in response');
+
+    const courseContent = JSON.parse(jsonMatch[0]);
+
+    console.log('✅ Course content generated successfully');
+    return courseContent;
+
+  } catch (error) {
+    console.error('❌ AI course generation failed:', error.message);
+    return this.generateFallbackCourseContent(moduleTitle, moduleDescription);
+  }
+}
+
+// ---- Fallback Course Content ----
+generateFallbackCourseContent(title, description) {
+  return {
+    title,
+    description,
+    lessons: [
+      {
+        title: 'Introduction',
+        content: `Welcome to ${title}. ${description}`,
+        examples: ['Getting started', 'Basic example'],
+        exercises: ['Set up your environment', 'Complete the intro challenge'],
+        keyTakeaways: ['Understanding the basics', 'Getting familiar with concepts']
+      },
+      {
+        title: 'Core Concepts',
+        content: 'Deep dive into the fundamental concepts.',
+        examples: ['Practical example 1', 'Practical example 2'],
+        exercises: ['Practice exercise 1', 'Practice exercise 2'],
+        keyTakeaways: ['Master core concepts', 'Apply what you learned']
+      }
+    ]
+  };
+}
+
+
   async checkAIService() {
     if (!this.isInitialized) {
       return { status: 'unavailable', provider: 'groq', error: 'API key not configured' };
