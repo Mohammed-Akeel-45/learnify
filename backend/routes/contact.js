@@ -7,7 +7,10 @@ const router = express.Router();
 // Create reusable transporter
 function createTransporter() {
   return nodemailer.createTransport({
-    service: process.env.MAIL_SERVICE || 'gmail',
+    // service: process.env.MAIL_SERVICE || 'gmail',
+    host: process.env.MAIL_HOST || 'smtp.gmail.com',
+    port: process.env.MAIL_PORT || 465,
+    secure: true,
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS
