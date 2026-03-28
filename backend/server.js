@@ -8,6 +8,11 @@ const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 
+const dns = require('dns');
+
+// Force IPv4 DNS resolution first to fix ENETUNREACH on Render
+dns.setDefaultResultOrder('ipv4first');
+
 // Load env vars
 dotenv.config();
 
