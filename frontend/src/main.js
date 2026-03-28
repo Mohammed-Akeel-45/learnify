@@ -60,7 +60,24 @@ function openAuthModal() {
 function closeAuthModal() {
   document.getElementById('auth-modal').classList.remove('show');
   document.getElementById('login-error').textContent = '';
-  document.getElementById('register-error').textContent = '';
+  document.getElementById('register-step1-error').textContent = '';
+  document.getElementById('register-step2-error').textContent = '';
+  document.getElementById('register-step3-error').textContent = '';
+  
+  // Reset forgot password steps
+  document.getElementById('forgot-step1').style.display = 'none';
+  document.getElementById('forgot-step2').style.display = 'none';
+  document.getElementById('forgot-step3').style.display = 'none';
+  
+  // Reset register steps
+  document.getElementById('register-step1').style.display = 'none';
+  document.getElementById('register-step2').style.display = 'none';
+  document.getElementById('register-step3').style.display = 'none';
+
+  document.getElementById('auth-tabs-container').style.display = 'flex';
+  document.getElementById('login-form').style.display = 'block';
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.auth-tab[data-tab="login"]').classList.add('active');
 }
 
 function updateUIForAuth() {
@@ -139,14 +156,164 @@ function init() {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
+      // Hide all forgot steps and register steps
+      hideAllForgotSteps();
+      document.getElementById('register-step1').style.display = 'none';
+      document.getElementById('register-step2').style.display = 'none';
+      document.getElementById('register-step3').style.display = 'none';
+      
       if (tab.dataset.tab === 'login') {
         document.getElementById('login-form').style.display = 'block';
-        document.getElementById('register-form').style.display = 'none';
       } else {
         document.getElementById('login-form').style.display = 'none';
-        document.getElementById('register-form').style.display = 'block';
+        document.getElementById('register-step1').style.display = 'block';
       }
     });
+  });
+
+  // ============ FORGOT PASSWORD FLOW ============
+
+  let forgotEmail = '';
+  let resetToken = '';
+
+  function hideAllForgotSteps() {
+    document.getElementById('forgot-step1').style.display = 'none';
+    document.getElementById('forgot-step2').style.display = 'none';
+    document.getElementById('forgot-step3').style.display = 'none';
+    document.getElementById('forgot-step1-error').textContent = '';
+    document.getElementById('forgot-step2-error').textContent = '';
+    document.getElementById('forgot-step3-error').textContent = '';
+  }
+
+  function showForgotStep(step) {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('auth-tabs-container').style.display = 'none';
+    hideAllForgotSteps();
+    document.getElementById(`forgot-step${step}`).style.display = 'block';
+  }
+
+  function backToLogin() {
+    hideAllForgotSteps();
+    document.getElementById('auth-tabs-container').style.display = 'flex';
+    document.getElementById('login-form').style.display = 'block';
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.auth-tab[data-tab="login"]').classList.add('active');
+  }
+
+  // "Forgot Password?" link
+  document.getElementById('forgot-password-link').addEventListener('click', () => {
+    showForgotStep(1);
+  });
+
+  // Back to login buttons
+  document.getElementById('forgot-back-login1').addEventListener('click', backToLogin);
+
+  // Step 1: Send OTP
+  document.getElementById('forgot-send-otp-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('forgot-send-otp-btn');
+    const email = document.getElementById('forgot-email').value.trim();
+    if (!email) {
+      document.getElementById('forgot-step1-error').textContent = 'Please enter your email';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    document.getElementById('forgot-step1-error').textContent = '';
+
+    try {
+      await apiFetch('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      forgotEmail = email;
+      showToast('OTP sent to your email!', 'success');
+      showForgotStep(2);
+    } catch (err) {
+      document.getElementById('forgot-step1-error').textContent = err.message;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Send OTP';
+  });
+
+  // Step 2: Verify OTP
+  document.getElementById('forgot-verify-otp-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('forgot-verify-otp-btn');
+    const otp = document.getElementById('forgot-otp').value.trim();
+    if (!otp || otp.length !== 6) {
+      document.getElementById('forgot-step2-error').textContent = 'Please enter the 6-digit OTP';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Verifying...';
+    document.getElementById('forgot-step2-error').textContent = '';
+
+    try {
+      const res = await apiFetch('/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email: forgotEmail, otp })
+      });
+      resetToken = res.resetToken;
+      showToast('OTP verified!', 'success');
+      showForgotStep(3);
+    } catch (err) {
+      document.getElementById('forgot-step2-error').textContent = err.message;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Verify OTP';
+  });
+
+  // Resend OTP
+  document.getElementById('forgot-resend-otp').addEventListener('click', async () => {
+    try {
+      await apiFetch('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: forgotEmail })
+      });
+      showToast('New OTP sent!', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
+  // Step 3: Reset Password
+  document.getElementById('forgot-reset-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('forgot-reset-btn');
+    const newPassword = document.getElementById('forgot-new-password').value;
+    const confirmPassword = document.getElementById('forgot-confirm-password').value;
+
+    if (!newPassword || !confirmPassword) {
+      document.getElementById('forgot-step3-error').textContent = 'Please fill in both fields';
+      return;
+    }
+    if (newPassword.length < 6) {
+      document.getElementById('forgot-step3-error').textContent = 'Password must be at least 6 characters';
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      document.getElementById('forgot-step3-error').textContent = 'Passwords do not match';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Resetting...';
+    document.getElementById('forgot-step3-error').textContent = '';
+
+    try {
+      const res = await apiFetch('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ resetToken, newPassword, confirmPassword })
+      });
+      showToast(res.message, 'success');
+      // Go back to login
+      backToLogin();
+    } catch (err) {
+      document.getElementById('forgot-step3-error').textContent = err.message;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Reset Password';
   });
 
   // Login form
@@ -174,30 +341,108 @@ function init() {
     }
   });
 
-  // Register form
-  document.getElementById('register-form').addEventListener('submit', async (e) => {
+  // ============ REGISTER MULTI-STEP FLOW ============
+  let regRegisterToken = '';
+  let regVerifiedToken = '';
+
+  // Step 1: Send OTP for Registration
+  document.getElementById('register-step1').addEventListener('submit', async (e) => {
     e.preventDefault();
-    document.getElementById('register-error').textContent = '';
+    const btn = document.getElementById('register-send-otp-btn');
+    const name = document.getElementById('register-name').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const errorEl = document.getElementById('register-step1-error');
+    errorEl.textContent = '';
+
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+      const res = await apiFetch('/auth/register-send-otp', {
+        method: 'POST',
+        body: JSON.stringify({ name, email })
+      });
+      regRegisterToken = res.registerToken;
+      showToast('OTP sent to your email!', 'success');
+      
+      document.getElementById('register-step1').style.display = 'none';
+      document.getElementById('register-step2').style.display = 'block';
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Continue';
+  });
+
+  // Step 2: Verify OTP for Registration
+  document.getElementById('register-verify-otp-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('register-verify-otp-btn');
+    const otp = document.getElementById('register-otp').value.trim();
+    const errorEl = document.getElementById('register-step2-error');
+    errorEl.textContent = '';
+
+    if (!otp || otp.length !== 6) {
+      errorEl.textContent = 'Please enter the 6-digit OTP';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Verifying...';
+
+    try {
+      const res = await apiFetch('/auth/register-verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ otp, registerToken: regRegisterToken })
+      });
+      regVerifiedToken = res.verifiedRegisterToken;
+      showToast('Email verified successfully!', 'success');
+      
+      document.getElementById('register-step2').style.display = 'none';
+      document.getElementById('register-step3').style.display = 'block';
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Verify Email';
+  });
+
+  // Step 3: Complete Registration
+  document.getElementById('register-complete-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('register-complete-btn');
+    const password = document.getElementById('register-password').value;
+    const confirmPassword = document.getElementById('register-confirm-password').value;
+    const errorEl = document.getElementById('register-step3-error');
+    errorEl.textContent = '';
+
+    if (password.length < 6) {
+      errorEl.textContent = 'Password must be at least 6 characters';
+      return;
+    }
+    if (password !== confirmPassword) {
+      errorEl.textContent = 'Passwords do not match';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Registering...';
 
     try {
       const { data } = await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({
-          name: document.getElementById('register-name').value,
-          email: document.getElementById('register-email').value,
-          password: document.getElementById('register-password').value
-        })
+        body: JSON.stringify({ password, verifiedRegisterToken: regVerifiedToken })
       });
 
       setToken(data.token);
       setUser({ _id: data._id, name: data.name, email: data.email });
       closeAuthModal();
       updateUIForAuth();
-      showToast(`Welcome, ${data.name}!`, 'success');
+      showToast(`Welcome to Learnify, ${data.name}!`, 'success');
       navigate('dashboard');
     } catch (err) {
-      document.getElementById('register-error').textContent = err.message;
+      errorEl.textContent = err.message;
     }
+    btn.disabled = false;
+    btn.textContent = 'Complete Registration';
   });
 
   // Nav links

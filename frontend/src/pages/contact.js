@@ -5,8 +5,8 @@ export function renderContact(container) {
   container.innerHTML = `
     <div class="contact-container">
       <div class="about-hero glass-card" style="padding:32px;">
-        <h1 style="font-size:28px;">✉️ Contact Us</h1>
-        <p>Have questions, suggestions, or feedback? We'd love to hear from you!</p>
+        <h1 style="font-size:28px;">Contact Us</h1>
+        <p>Have questions, suggestions, or feedback? We'd love to hear from you.</p>
       </div>
       <div class="contact-form glass-card" style="margin-top:20px;">
         <h2>Send us a Message</h2>
@@ -53,7 +53,7 @@ export function renderContact(container) {
 
       document.getElementById('contact-status').textContent = message;
       document.getElementById('contact-form').reset();
-      showToast('Message sent!', 'success');
+      showToast('Message sent successfully', 'success');
     } catch (err) {
       document.getElementById('contact-status').textContent = '';
       showToast(err.message, 'error');

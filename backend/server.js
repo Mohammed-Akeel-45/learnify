@@ -1,6 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+const hpp = require('hpp');
+const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 
 // Load env vars
@@ -11,9 +16,20 @@ connectDB();
 
 const app = express();
 
-// Middleware
+// Security Middlewares
+app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use(mongoSanitize());
+app.use(xss());
+app.use(hpp());
+
+// Global Rate Limiting (100 reqs / 10 mins per IP)
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 100
+});
+app.use('/api', limiter);
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));

@@ -33,7 +33,7 @@ async function loadQuizzes(container) {
     if (data.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">❓</div>
+          <div class="empty-icon"></div>
           <h3>No Quizzes Yet</h3>
           <p>Generate a quiz on any topic to test your knowledge!</p>
         </div>
@@ -50,7 +50,7 @@ async function loadQuizzes(container) {
         </div>
         ${q.completed
           ? `<div class="quiz-score-display">${q.score}%</div>`
-          : '<span style="color:var(--accent-orange);font-size:13px;font-weight:500;">⏳ In Progress</span>'
+          : '<span style="color:var(--accent-orange);font-size:13px;font-weight:500;"> In Progress</span>'
         }
       </div>
     `).join('')}</div>`;
@@ -78,7 +78,7 @@ function renderQuizSetup(container) {
   container.innerHTML = `
     <button class="back-btn" id="back-btn">← Back to Quizzes</button>
     <div class="quiz-setup glass-card">
-      <h2>🧠 Generate a Quiz</h2>
+      <h2> Generate a Quiz</h2>
       <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">AI will generate questions to test your knowledge on any topic.</p>
       <form id="quiz-form">
         <div class="form-group">
@@ -97,7 +97,7 @@ function renderQuizSetup(container) {
             <option value="hard">Hard</option>
           </select>
         </div>
-        <button type="submit" class="btn btn-primary btn-full" id="gen-quiz-btn">🚀 Generate Quiz</button>
+        <button type="submit" class="btn btn-primary btn-full" id="gen-quiz-btn"> Generate Quiz</button>
         <div id="quiz-gen-error" class="form-error"></div>
       </form>
     </div>
@@ -109,7 +109,7 @@ function renderQuizSetup(container) {
     e.preventDefault();
     const btn = document.getElementById('gen-quiz-btn');
     btn.disabled = true;
-    btn.textContent = '⏳ Generating...';
+    btn.textContent = 'Generating...';
     document.getElementById('quiz-gen-error').textContent = '';
 
     try {
@@ -129,7 +129,7 @@ function renderQuizSetup(container) {
     } catch (err) {
       document.getElementById('quiz-gen-error').textContent = err.message;
       btn.disabled = false;
-      btn.textContent = '🚀 Generate Quiz';
+      btn.textContent = 'Generate Quiz';
     }
   });
 }
@@ -194,7 +194,7 @@ async function submitQuiz(container) {
   const quiz = currentQuiz;
   const btn = document.getElementById('submit-quiz-btn');
   btn.disabled = true;
-  btn.textContent = '⏳ Submitting...';
+  btn.textContent = 'Submitting...';
 
   const answers = quiz.questions.map((q, qi) => ({
     questionId: q._id,
@@ -262,7 +262,7 @@ function renderQuizResults(container, quiz, results = null) {
               `;
             }).join('')}
           </div>
-          ${q.explanation ? `<div class="explanation-text">💡 ${q.explanation}</div>` : ''}
+          ${q.explanation ? `<div class="explanation-text">${q.explanation}</div>` : ''}
         </div>
       `;
     }).join('')}
@@ -270,3 +270,4 @@ function renderQuizResults(container, quiz, results = null) {
 
   document.getElementById('back-btn').addEventListener('click', () => renderQuizList(container));
 }
+

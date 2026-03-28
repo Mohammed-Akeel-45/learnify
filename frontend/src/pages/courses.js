@@ -19,7 +19,7 @@ async function loadCourses(container) {
     if (data.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">📚</div>
+          <div class="empty-icon"></div>
           <h3>No Courses Yet</h3>
           <p>Generate a roadmap and approve it to create a course!</p>
           <a href="#/roadmap" class="btn btn-primary">Go to Roadmaps</a>
@@ -72,7 +72,7 @@ function renderCourseDetail(container, course) {
       ${course.modules.map((mod, mi) => `
         <div class="module-accordion glass-card">
           <div class="module-header" data-module="${mi}">
-            <h3>📖 ${mod.title}</h3>
+            <h3> ${mod.title}</h3>
             <span class="chevron">▼</span>
           </div>
           <div class="module-lessons" id="module-lessons-${mi}">
@@ -81,7 +81,7 @@ function renderCourseDetail(container, course) {
                 <div class="lesson-checkbox ${lesson.completed ? 'completed' : ''}"></div>
                 <div>
                   <div class="lesson-title">${lesson.title}</div>
-                  <div class="lesson-duration">⏱️ ${lesson.duration || '30 mins'}</div>
+                  <div class="lesson-duration"> ${lesson.duration || '30 mins'}</div>
                 </div>
               </div>
             `).join('')}

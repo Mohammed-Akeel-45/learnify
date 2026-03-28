@@ -31,7 +31,7 @@ async function loadRoadmaps(container) {
     if (data.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">🗺️</div>
+          <div class="empty-icon"></div>
           <h3>No Roadmaps Yet</h3>
           <p>Generate your first learning roadmap powered by AI!</p>
         </div>
@@ -47,9 +47,9 @@ async function loadRoadmaps(container) {
         </div>
         <p>${r.description || 'No description'}</p>
         <div class="roadmap-meta">
-          <span>📅 ${r.totalWeeks} weeks</span>
-          <span>📖 ${r.topic}</span>
-          <span>🕐 ${new Date(r.createdAt).toLocaleDateString()}</span>
+          <span> ${r.totalWeeks} weeks</span>
+          <span> ${r.topic}</span>
+          <span> ${new Date(r.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
     `).join('')}</div>`;
@@ -69,7 +69,7 @@ function renderGenerateForm(container) {
   container.innerHTML = `
     <button class="back-btn" id="back-btn">← Back to Roadmaps</button>
     <div class="roadmap-form glass-card">
-      <h2>🗺️ Generate Learning Roadmap</h2>
+      <h2> Generate Learning Roadmap</h2>
       <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">Tell us what you want to learn and we'll create a personalized roadmap using AI.</p>
       <form id="roadmap-gen-form">
         <div class="form-group">
@@ -96,7 +96,7 @@ function renderGenerateForm(container) {
     e.preventDefault();
     const btn = document.getElementById('gen-btn');
     btn.disabled = true;
-    btn.textContent = '⏳ Generating...';
+    btn.textContent = 'Generating...';
     document.getElementById('gen-error').textContent = '';
 
     try {
@@ -114,7 +114,7 @@ function renderGenerateForm(container) {
     } catch (err) {
       document.getElementById('gen-error').textContent = err.message;
       btn.disabled = false;
-      btn.textContent = '🚀 Generate Roadmap';
+      btn.textContent = 'Generate Roadmap';
     }
   });
 }
@@ -132,8 +132,8 @@ function renderRoadmapDetail(container, roadmap) {
         <span class="badge badge-${roadmap.status}">${roadmap.status}</span>
       </div>
       <div class="roadmap-meta" style="margin-top:12px;">
-        <span>📖 ${roadmap.topic}</span>
-        <span>📅 ${roadmap.totalWeeks} weeks</span>
+        <span>${roadmap.topic}</span>
+        <span>${roadmap.totalWeeks} weeks</span>
       </div>
     </div>
 
@@ -152,12 +152,12 @@ function renderRoadmapDetail(container, roadmap) {
 
     <div class="roadmap-actions" style="margin-top:20px;">
       ${roadmap.status === 'draft' ? `
-        <button class="btn btn-success" id="approve-btn">✅ Approve Roadmap</button>
-        <button class="btn btn-secondary" id="regenerate-btn">🔄 Regenerate</button>
+        <button class="btn btn-success" id="approve-btn">Approve Roadmap</button>
+        <button class="btn btn-secondary" id="regenerate-btn">Regenerate</button>
       ` : `
-        <button class="btn btn-primary" id="generate-course-btn">📚 Generate Course</button>
+        <button class="btn btn-primary" id="generate-course-btn">Generate Course</button>
       `}
-      <button class="btn btn-danger" id="delete-roadmap-btn">🗑️ Delete</button>
+      <button class="btn btn-danger" id="delete-roadmap-btn">Delete</button>
     </div>
 
     <div id="regen-section" style="display:none;" class="regenerate-section">
@@ -198,7 +198,7 @@ async function approveRoadmap(container, id) {
 async function regenerateRoadmap(container, id) {
   const btn = document.getElementById('regen-submit-btn');
   btn.disabled = true;
-  btn.textContent = '⏳ Regenerating...';
+  btn.textContent = 'Regenerating...';
 
   try {
     const feedback = document.getElementById('regen-feedback').value;
@@ -218,16 +218,16 @@ async function regenerateRoadmap(container, id) {
 async function generateCourseFromRoadmap(container, roadmapId) {
   const btn = document.getElementById('generate-course-btn');
   btn.disabled = true;
-  btn.textContent = '⏳ Generating course...';
+  btn.textContent = 'Generating course...';
 
   try {
     await apiFetch(`/courses/generate/${roadmapId}`, { method: 'POST' });
     showToast('Course generated! Go to Courses tab to start learning.', 'success');
-    btn.textContent = '✅ Course Generated!';
+    btn.textContent = 'Course Generated!';
   } catch (err) {
     showToast(err.message, 'error');
     btn.disabled = false;
-    btn.textContent = '📚 Generate Course';
+    btn.textContent = 'Generate Course';
   }
 }
 

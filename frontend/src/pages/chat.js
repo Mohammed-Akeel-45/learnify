@@ -5,18 +5,18 @@ export function renderChat(container) {
   container.innerHTML = `
     <div class="chat-container">
       <div class="section-header">
-        <h2>🤖 AI Assistant</h2>
+        <h2>AI Assistant</h2>
         <button class="btn btn-sm btn-secondary" id="clear-chat-btn">Clear History</button>
       </div>
       <div class="chat-messages" id="chat-messages">
         <div class="chat-message assistant">
-          <div class="chat-avatar">🤖</div>
-          <div class="chat-bubble">Hello! I'm your Learnify AI Assistant. Ask me anything about your studies, concepts, or learning strategies!</div>
+          <div class="chat-avatar">AI</div>
+          <div class="chat-bubble">Hello! I'm your Learnify AI Assistant. Ask me anything about your studies, concepts, or learning strategies.</div>
         </div>
       </div>
       <div class="chat-input-area">
         <input type="text" id="chat-input" placeholder="Type your message..." autocomplete="off" />
-        <button id="chat-send-btn">➤</button>
+        <button id="chat-send-btn">Send</button>
       </div>
     </div>
   `;
@@ -34,8 +34,8 @@ export function renderChat(container) {
       const messagesEl = document.getElementById('chat-messages');
       messagesEl.innerHTML = `
         <div class="chat-message assistant">
-          <div class="chat-avatar">🤖</div>
-          <div class="chat-bubble">Chat history cleared! How can I help you?</div>
+          <div class="chat-avatar">AI</div>
+          <div class="chat-bubble">Chat history cleared. How can I help you?</div>
         </div>
       `;
       showToast('Chat history cleared', 'success');
@@ -50,7 +50,7 @@ async function loadHistory() {
       const messagesEl = document.getElementById('chat-messages');
       messagesEl.innerHTML = data.map(m => `
         <div class="chat-message ${m.role}">
-          <div class="chat-avatar">${m.role === 'user' ? '👤' : '🤖'}</div>
+          <div class="chat-avatar">${m.role === 'user' ? 'You' : 'AI'}</div>
           <div class="chat-bubble">${escapeHtml(m.content)}</div>
         </div>
       `).join('');
@@ -72,7 +72,7 @@ async function sendMessage() {
   // Add user message
   messagesEl.innerHTML += `
     <div class="chat-message user">
-      <div class="chat-avatar">👤</div>
+      <div class="chat-avatar">You</div>
       <div class="chat-bubble">${escapeHtml(message)}</div>
     </div>
   `;
@@ -81,7 +81,7 @@ async function sendMessage() {
   const loadingId = 'loading-' + Date.now();
   messagesEl.innerHTML += `
     <div class="chat-message assistant" id="${loadingId}">
-      <div class="chat-avatar">🤖</div>
+      <div class="chat-avatar">AI</div>
       <div class="chat-bubble" style="opacity:0.6;">Thinking...</div>
     </div>
   `;

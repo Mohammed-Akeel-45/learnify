@@ -48,56 +48,72 @@ Make it comprehensive, practical, and progressively structured from beginner to 
 }
 
 /**
- * Generate course content for a roadmap
+ * Generate course content for a roadmap — processes one week at a time
+ * to stay within Groq token limits and avoid truncated responses.
  */
 async function generateCourseContent(roadmap) {
-  const weeksDescription = roadmap.weeks.map(w =>
-    `Week ${w.weekNumber}: ${w.title} - Topics: ${w.topics.join(', ')}`
-  ).join('\n');
+  const modules = [];
 
-  const prompt = `You are an expert course creator. Generate detailed course content for the following learning roadmap:
+  for (const week of roadmap.weeks) {
+    const prompt = `You are an expert course creator. Generate lesson content for ONE module of a course.
 
-Title: ${roadmap.title}
-${weeksDescription}
+Course: ${roadmap.title}
+Module: Week ${week.weekNumber} — ${week.title}
+Topics to cover: ${week.topics.join(', ')}
 
-Return ONLY a valid JSON object (no markdown, no code fences) with this exact format:
+Return ONLY a valid JSON object (no markdown, no code fences) in this exact format:
 {
-  "title": "${roadmap.title}",
-  "description": "Course description",
-  "modules": [
+  "title": "${week.title}",
+  "weekNumber": ${week.weekNumber},
+  "lessons": [
     {
-      "title": "Module title (corresponding to a week)",
-      "weekNumber": 1,
-      "lessons": [
-        {
-          "title": "Lesson title",
-          "content": "Detailed lesson content with explanations, examples, and key concepts. Make it at least 3-4 paragraphs with practical examples.",
-          "duration": "30 mins"
-        }
-      ]
+      "title": "Lesson title",
+      "content": "Lesson content with clear explanations and examples. 2-3 paragraphs.",
+      "duration": "30 mins"
     }
   ]
 }
 
-Each week should have 3-5 lessons. Make content educational, detailed, and practical.`;
+Generate exactly 3 lessons for this module. Keep each lesson content concise but educational.`;
 
-  const completion = await groq.chat.completions.create({
-    messages: [{ role: 'user', content: prompt }],
-    model: 'llama-3.3-70b-versatile',
-    temperature: 0.7,
-    max_tokens: 8000
-  });
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.7,
+      max_tokens: 4096
+    });
 
-  const text = completion.choices[0]?.message?.content || '';
-  try {
-    return JSON.parse(text);
-  } catch {
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1].trim());
+    const text = completion.choices[0]?.message?.content || '';
+    let moduleData;
+    try {
+      moduleData = JSON.parse(text);
+    } catch {
+      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        moduleData = JSON.parse(jsonMatch[1].trim());
+      } else {
+        console.error(`Failed to parse module for week ${week.weekNumber}. Raw:`, text.substring(0, 200));
+        // Create a fallback module so course generation doesn't completely fail
+        moduleData = {
+          title: week.title,
+          weekNumber: week.weekNumber,
+          lessons: week.topics.map(t => ({
+            title: t,
+            content: `Study the topic: ${t}. This is part of ${week.title} in the ${roadmap.title} course.`,
+            duration: '30 mins'
+          }))
+        };
+      }
     }
-    throw new Error('Failed to parse course content from AI');
+
+    modules.push(moduleData);
   }
+
+  return {
+    title: roadmap.title,
+    description: roadmap.description || `A comprehensive course on ${roadmap.topic}`,
+    modules
+  };
 }
 
 /**

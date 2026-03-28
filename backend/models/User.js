@@ -24,6 +24,22 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String,
     default: ''
+  },
+  resetOtp: {
+    type: String,
+    select: false
+  },
+  resetOtpExpiry: {
+    type: Date,
+    select: false
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
 

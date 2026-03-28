@@ -3,25 +3,21 @@ import { apiFetch } from '../api.js';
 export function renderDashboard(container) {
   container.innerHTML = `
     <div class="dashboard-welcome">
-      <h1>Welcome back! 👋</h1>
+      <h1>Welcome back</h1>
       <p>Track your learning progress and continue where you left off.</p>
     </div>
     <div class="stats-grid" id="stats-grid">
       <div class="stat-card glass-card">
-        <div class="stat-icon" style="background: rgba(102,126,234,0.15)">📚</div>
-        <div class="stat-info"><h3 id="stat-courses">-</h3><p>Total Courses</p></div>
+        <div class="stat-info"><p>Total Courses</p><h3 id="stat-courses">-</h3></div>
       </div>
       <div class="stat-card glass-card">
-        <div class="stat-icon" style="background: rgba(79,201,120,0.15)">✅</div>
-        <div class="stat-info"><h3 id="stat-quizzes">-</h3><p>Quizzes Completed</p></div>
+        <div class="stat-info"><p>Quizzes Completed</p><h3 id="stat-quizzes">-</h3></div>
       </div>
       <div class="stat-card glass-card">
-        <div class="stat-icon" style="background: rgba(247,151,30,0.15)">🗺️</div>
-        <div class="stat-info"><h3 id="stat-roadmaps">-</h3><p>Roadmaps</p></div>
+        <div class="stat-info"><p>Roadmaps Generate</p><h3 id="stat-roadmaps">-</h3></div>
       </div>
       <div class="stat-card glass-card">
-        <div class="stat-icon" style="background: rgba(0,210,255,0.15)">📊</div>
-        <div class="stat-info"><h3 id="stat-avg-score">-</h3><p>Avg Quiz Score</p></div>
+        <div class="stat-info"><p>Avg Quiz Score</p><h3 id="stat-avg-score">-</h3></div>
       </div>
     </div>
     <div class="stats-grid">
@@ -51,7 +47,7 @@ async function loadStats() {
     const coursesRes = await apiFetch('/courses');
     const courseList = document.getElementById('course-progress-list');
     if (coursesRes.data.length === 0) {
-      courseList.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No courses yet. Generate a roadmap to get started!</p>';
+      courseList.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No courses yet. Generate a roadmap to get started.</p>';
     } else {
       courseList.innerHTML = coursesRes.data.slice(0, 5).map(c => `
         <div style="margin-bottom:12px;">
@@ -68,13 +64,13 @@ async function loadStats() {
     const quizzesRes = await apiFetch('/quizzes');
     const quizList = document.getElementById('recent-quizzes-list');
     if (quizzesRes.data.length === 0) {
-      quizList.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No quizzes taken yet. Try generating one!</p>';
+      quizList.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No quizzes taken yet.</p>';
     } else {
       quizList.innerHTML = quizzesRes.data.slice(0, 5).map(q => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-glass);">
           <div>
             <div style="font-size:13px;font-weight:500;">${q.title.length > 25 ? q.title.substring(0, 25) + '...' : q.title}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${q.difficulty} • ${q.totalQuestions} questions</div>
+            <div style="font-size:11px;color:var(--text-muted);">${q.difficulty} · ${q.totalQuestions} questions</div>
           </div>
           <div style="font-weight:700;color:${q.completed ? 'var(--accent-green)' : 'var(--text-muted)'};">
             ${q.completed ? q.score + '%' : 'Pending'}

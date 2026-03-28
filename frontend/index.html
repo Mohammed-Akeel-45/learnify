@@ -16,19 +16,18 @@
     <nav id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="logo">
-          <span class="logo-icon">🎓</span>
           <span class="logo-text">Learnify</span>
         </div>
         <button id="sidebar-close" class="sidebar-close">&times;</button>
       </div>
       <ul class="nav-links">
-        <li><a href="#/dashboard" class="nav-link active" data-page="dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
-        <li><a href="#/roadmap" class="nav-link" data-page="roadmap"><span class="nav-icon">🗺️</span> Roadmap</a></li>
-        <li><a href="#/courses" class="nav-link" data-page="courses"><span class="nav-icon">📚</span> Courses</a></li>
-        <li><a href="#/quiz" class="nav-link" data-page="quiz"><span class="nav-icon">❓</span> Quiz</a></li>
-        <li><a href="#/ai-assistant" class="nav-link" data-page="ai-assistant"><span class="nav-icon">🤖</span> AI Assistant</a></li>
-        <li><a href="#/about" class="nav-link" data-page="about"><span class="nav-icon">ℹ️</span> About Us</a></li>
-        <li><a href="#/contact" class="nav-link" data-page="contact"><span class="nav-icon">✉️</span> Contact Us</a></li>
+        <li><a href="#/dashboard" class="nav-link active" data-page="dashboard">Dashboard</a></li>
+        <li><a href="#/roadmap" class="nav-link" data-page="roadmap">Roadmap</a></li>
+        <li><a href="#/courses" class="nav-link" data-page="courses">Courses</a></li>
+        <li><a href="#/quiz" class="nav-link" data-page="quiz">Quiz</a></li>
+        <li><a href="#/ai-assistant" class="nav-link" data-page="ai-assistant">AI Assistant</a></li>
+        <li><a href="#/about" class="nav-link" data-page="about">About Us</a></li>
+        <li><a href="#/contact" class="nav-link" data-page="contact">Contact Us</a></li>
       </ul>
     </nav>
 
@@ -67,7 +66,7 @@
     <div class="modal-overlay" id="auth-modal">
       <div class="modal glass-card">
         <button class="modal-close" id="auth-modal-close">&times;</button>
-        <div class="auth-tabs">
+        <div class="auth-tabs" id="auth-tabs-container">
           <button class="auth-tab active" data-tab="login">Login</button>
           <button class="auth-tab" data-tab="register">Register</button>
         </div>
@@ -83,9 +82,14 @@
           </div>
           <button type="submit" class="btn btn-primary btn-full">Login</button>
           <div id="login-error" class="form-error"></div>
+          <p style="text-align:center;margin-top:12px;">
+            <button type="button" id="forgot-password-link" style="background:none;border:none;color:var(--accent-blue);font-family:var(--font);font-size:13px;cursor:pointer;text-decoration:underline;">Forgot Password?</button>
+          </p>
         </form>
-        <form id="register-form" class="auth-form" style="display:none;">
+        <!-- Register: Step 1 — Enter Name & Email -->
+        <form id="register-step1" class="auth-form" style="display:none;">
           <h2>Create Account</h2>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Step 1: Verify your email address.</p>
           <div class="form-group">
             <label for="register-name">Full Name</label>
             <input type="text" id="register-name" placeholder="John Doe" required />
@@ -94,13 +98,83 @@
             <label for="register-email">Email</label>
             <input type="email" id="register-email" placeholder="your@email.com" required />
           </div>
+          <button type="submit" class="btn btn-primary btn-full" id="register-send-otp-btn">Continue</button>
+          <div id="register-step1-error" class="form-error"></div>
+        </form>
+
+        <!-- Register: Step 2 — Enter OTP -->
+        <div id="register-step2" class="auth-form" style="display:none;">
+          <h2>Verify Email</h2>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">We sent a 6-digit code to your email.</p>
+          <div class="form-group">
+            <label for="register-otp">OTP Code</label>
+            <input type="text" id="register-otp" placeholder="123456" maxlength="6" pattern="[0-9]{6}" required style="text-align:center;font-size:24px;letter-spacing:8px;font-weight:700;" />
+          </div>
+          <button type="button" class="btn btn-primary btn-full" id="register-verify-otp-btn">Verify Email</button>
+          <div id="register-step2-error" class="form-error"></div>
+        </div>
+
+        <!-- Register: Step 3 — Set Password -->
+        <div id="register-step3" class="auth-form" style="display:none;">
+          <h2>Set Password</h2>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Email verified! Almost done.</p>
           <div class="form-group">
             <label for="register-password">Password</label>
-            <input type="password" id="register-password" placeholder="Min 6 characters" required minlength="6" />
+            <input type="password" id="register-password" placeholder="Min 6 characters" minlength="6" required />
           </div>
-          <button type="submit" class="btn btn-primary btn-full">Register</button>
-          <div id="register-error" class="form-error"></div>
-        </form>
+          <div class="form-group">
+            <label for="register-confirm-password">Confirm Password</label>
+            <input type="password" id="register-confirm-password" placeholder="Re-enter password" minlength="6" required />
+          </div>
+          <button type="button" class="btn btn-primary btn-full" id="register-complete-btn">Complete Registration</button>
+          <div id="register-step3-error" class="form-error"></div>
+        </div>
+
+        <!-- Forgot Password: Step 1 — Enter Email -->
+        <div id="forgot-step1" class="auth-form" style="display:none;">
+          <h2>Forgot Password</h2>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Enter your registered email and we'll send you a 6-digit OTP.</p>
+          <div class="form-group">
+            <label for="forgot-email">Email</label>
+            <input type="email" id="forgot-email" placeholder="your@email.com" required />
+          </div>
+          <button type="button" class="btn btn-primary btn-full" id="forgot-send-otp-btn">Send OTP</button>
+          <div id="forgot-step1-error" class="form-error"></div>
+          <p style="text-align:center;margin-top:12px;">
+            <button type="button" id="forgot-back-login1" style="background:none;border:none;color:var(--accent-blue);font-family:var(--font);font-size:13px;cursor:pointer;text-decoration:underline;">← Back to Login</button>
+          </p>
+        </div>
+
+        <!-- Forgot Password: Step 2 — Enter OTP -->
+        <div id="forgot-step2" class="auth-form" style="display:none;">
+          <h2>Enter OTP</h2>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">We sent a 6-digit code to your email. Check your inbox.</p>
+          <div class="form-group">
+            <label for="forgot-otp">OTP Code</label>
+            <input type="text" id="forgot-otp" placeholder="123456" maxlength="6" pattern="[0-9]{6}" required style="text-align:center;font-size:24px;letter-spacing:8px;font-weight:700;" />
+          </div>
+          <button type="button" class="btn btn-primary btn-full" id="forgot-verify-otp-btn">Verify OTP</button>
+          <div id="forgot-step2-error" class="form-error"></div>
+          <p style="text-align:center;margin-top:12px;">
+            <button type="button" id="forgot-resend-otp" style="background:none;border:none;color:var(--text-muted);font-family:var(--font);font-size:12px;cursor:pointer;">Didn't receive it? Resend OTP</button>
+          </p>
+        </div>
+
+        <!-- Forgot Password: Step 3 — New Password -->
+        <div id="forgot-step3" class="auth-form" style="display:none;">
+          <h2>Create New Password</h2>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Enter your new password below.</p>
+          <div class="form-group">
+            <label for="forgot-new-password">New Password</label>
+            <input type="password" id="forgot-new-password" placeholder="Min 6 characters" minlength="6" required />
+          </div>
+          <div class="form-group">
+            <label for="forgot-confirm-password">Confirm Password</label>
+            <input type="password" id="forgot-confirm-password" placeholder="Re-enter password" minlength="6" required />
+          </div>
+          <button type="button" class="btn btn-primary btn-full" id="forgot-reset-btn">Reset Password</button>
+          <div id="forgot-step3-error" class="form-error"></div>
+        </div>
       </div>
     </div>
 
