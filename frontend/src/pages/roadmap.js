@@ -84,7 +84,7 @@ function renderGenerateForm(container) {
           <label for="roadmap-info">Additional preferences (optional)</label>
           <textarea id="roadmap-info" placeholder="e.g., I'm a beginner, focus on practical projects..."></textarea>
         </div>
-        <button type="submit" class="btn btn-primary btn-full" id="gen-btn">🚀 Generate Roadmap</button>
+        <button type="submit" class="btn btn-primary btn-full" id="gen-btn"> Generate Roadmap</button>
         <div id="gen-error" class="form-error"></div>
       </form>
     </div>
