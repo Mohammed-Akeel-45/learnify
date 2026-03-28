@@ -32,6 +32,7 @@ async function sendOTPEmail(email, otp, name) {
     host: process.env.MAIL_HOST || 'smtp.gmail.com',
     port: process.env.MAIL_PORT || 465,
     secure: true,
+    family: 4, // Force IPv4 to bypass Render's IPv6 outbound block
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS
