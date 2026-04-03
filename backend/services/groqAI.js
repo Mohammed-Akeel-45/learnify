@@ -34,11 +34,9 @@ Make it comprehensive, practical, and progressively structured from beginner to 
   });
 
   const text = completion.choices[0]?.message?.content || '';
-  // Try to parse JSON from the response
   try {
     return JSON.parse(text);
   } catch {
-    // Try to extract JSON from markdown code fences
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[1].trim());
@@ -48,72 +46,137 @@ Make it comprehensive, practical, and progressively structured from beginner to 
 }
 
 /**
- * Generate course content for a roadmap — processes one week at a time
- * to stay within Groq token limits and avoid truncated responses.
+ * Generate course STRUCTURE only (fast) — no lesson content.
+ * Creates modules with lesson titles from roadmap topics.
+ * Also generates book recommendations.
  */
-async function generateCourseContent(roadmap) {
-  const modules = [];
+async function generateCourseStructure(roadmap) {
+  const prompt = `You are an expert course architect. Create a structured course outline from this learning roadmap.
 
-  for (const week of roadmap.weeks) {
-    const prompt = `You are an expert course creator. Generate lesson content for ONE module of a course.
+Course Topic: ${roadmap.title}
+Description: ${roadmap.description || ''}
 
-Course: ${roadmap.title}
-Module: Week ${week.weekNumber} — ${week.title}
-Topics to cover: ${week.topics.join(', ')}
+Weeks/Modules:
+${roadmap.weeks.map(w => `Week ${w.weekNumber}: ${w.title} — Topics: ${w.topics.join(', ')}`).join('\n')}
 
 Return ONLY a valid JSON object (no markdown, no code fences) in this exact format:
 {
-  "title": "${week.title}",
-  "weekNumber": ${week.weekNumber},
-  "lessons": [
+  "title": "${roadmap.title}",
+  "description": "A compelling 1-2 sentence course description",
+  "modules": [
     {
-      "title": "Lesson title",
-      "content": "Lesson content with clear explanations and examples. 2-3 paragraphs.",
-      "duration": "30 mins"
+      "title": "Module title",
+      "weekNumber": 1,
+      "lessons": [
+        { "title": "Clear, specific lesson title" },
+        { "title": "Another lesson title" }
+      ]
+    }
+  ],
+  "recommendedBooks": [
+    {
+      "title": "Book Title",
+      "author": "Author Name",
+      "reason": "Why this book is great for this topic"
     }
   ]
 }
 
-Generate exactly 3 lessons for this module. Keep each lesson content concise but educational.`;
+RULES:
+- Each module should have 3-5 lessons with clear, specific titles
+- Lesson titles should be descriptive (e.g. "Understanding Variables and Data Types in C++", not just "Variables")
+- Include exactly 4 recommended books (well-known, highly rated)
+- Do NOT include lesson content — only titles`;
 
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.7,
-      max_tokens: 4096
-    });
+  const completion = await groq.chat.completions.create({
+    messages: [{ role: 'user', content: prompt }],
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.7,
+    max_tokens: 4096
+  });
 
-    const text = completion.choices[0]?.message?.content || '';
-    let moduleData;
-    try {
-      moduleData = JSON.parse(text);
-    } catch {
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        moduleData = JSON.parse(jsonMatch[1].trim());
-      } else {
-        console.error(`Failed to parse module for week ${week.weekNumber}. Raw:`, text.substring(0, 200));
-        // Create a fallback module so course generation doesn't completely fail
-        moduleData = {
-          title: week.title,
-          weekNumber: week.weekNumber,
-          lessons: week.topics.map(t => ({
-            title: t,
-            content: `Study the topic: ${t}. This is part of ${week.title} in the ${roadmap.title} course.`,
-            duration: '30 mins'
-          }))
-        };
-      }
+  const text = completion.choices[0]?.message?.content || '';
+  let result;
+  try {
+    result = JSON.parse(text);
+  } catch {
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      result = JSON.parse(jsonMatch[1].trim());
+    } else {
+      // Fallback: build structure from roadmap directly
+      result = {
+        title: roadmap.title,
+        description: roadmap.description || `A comprehensive course on ${roadmap.title}`,
+        modules: roadmap.weeks.map(w => ({
+          title: w.title,
+          weekNumber: w.weekNumber,
+          lessons: w.topics.map(t => ({ title: t }))
+        })),
+        recommendedBooks: []
+      };
     }
-
-    modules.push(moduleData);
   }
 
-  return {
-    title: roadmap.title,
-    description: roadmap.description || `A comprehensive course on ${roadmap.topic}`,
-    modules
-  };
+  // Ensure lessons have empty content and contentGenerated = false
+  if (result.modules) {
+    result.modules.forEach(mod => {
+      if (mod.lessons) {
+        mod.lessons = mod.lessons.map(l => ({
+          title: l.title,
+          content: '',
+          contentGenerated: false,
+          duration: l.duration || '30 mins'
+        }));
+      }
+    });
+  }
+
+  if (!Array.isArray(result.recommendedBooks)) {
+    result.recommendedBooks = [];
+  }
+
+  return result;
+}
+
+/**
+ * Generate in-depth content for a SINGLE lesson (on-demand).
+ * Called when user clicks "Generate Content" on a specific lesson.
+ */
+async function generateLessonContent(courseTitle, moduleTitle, lessonTitle) {
+  const prompt = `You are an expert educator creating in-depth learning content. Write a comprehensive lesson on the following topic:
+
+Course: ${courseTitle}
+Module: ${moduleTitle}
+Lesson: ${lessonTitle}
+
+Write a thorough, well-structured lesson that a student can learn from. Your response should be PLAIN TEXT (not JSON), formatted as follows:
+
+1. Start with a clear INTRODUCTION explaining what this topic is and why it matters (1-2 paragraphs)
+
+2. CORE CONCEPTS — explain the main ideas step by step with clear language (2-3 paragraphs)
+
+3. PRACTICAL EXAMPLE — provide a concrete, real-world example or code snippet that demonstrates the concept. If it's a programming topic, include actual code. If it's a theoretical topic, use a real-world analogy or case study.
+
+4. COMMON PITFALLS — mention 2-3 common mistakes or misconceptions beginners make
+
+5. KEY TAKEAWAYS — end with bullet points (use • character) summarizing the most important points
+
+Make the content educational, beginner-friendly but thorough. Use clear section headers followed by colons (e.g., "Introduction:", "Example:", "Key Takeaways:"). Write at least 500 words.`;
+
+  const completion = await groq.chat.completions.create({
+    messages: [{ role: 'user', content: prompt }],
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.7,
+    max_tokens: 4096
+  });
+
+  const content = completion.choices[0]?.message?.content || '';
+  if (!content || content.length < 50) {
+    throw new Error('AI generated insufficient content. Please try again.');
+  }
+
+  return content;
 }
 
 /**
@@ -177,7 +240,8 @@ async function chatWithAI(messages) {
 
 module.exports = {
   generateRoadmap,
-  generateCourseContent,
+  generateCourseStructure,
+  generateLessonContent,
   generateQuiz,
   chatWithAI
 };

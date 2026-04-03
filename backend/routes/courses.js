@@ -2,12 +2,12 @@ const express = require('express');
 const Course = require('../models/Course');
 const Roadmap = require('../models/Roadmap');
 const { protect } = require('../middleware/auth');
-const { generateCourseContent } = require('../services/groqAI');
+const { generateCourseStructure, generateLessonContent } = require('../services/groqAI');
 
 const router = express.Router();
 
 // @route   POST /api/courses/generate/:roadmapId
-// @desc    Generate course content from an approved roadmap
+// @desc    Generate course STRUCTURE from an approved roadmap (fast — no content)
 router.post('/generate/:roadmapId', protect, async (req, res) => {
   try {
     const roadmap = await Roadmap.findOne({ _id: req.params.roadmapId, userId: req.user._id });
@@ -25,7 +25,8 @@ router.post('/generate/:roadmapId', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Course already generated for this roadmap', data: existingCourse });
     }
 
-    const aiResult = await generateCourseContent(roadmap);
+    // Generate structure only (fast)
+    const aiResult = await generateCourseStructure(roadmap);
 
     // Count total lessons
     let totalLessons = 0;
@@ -41,6 +42,7 @@ router.post('/generate/:roadmapId', protect, async (req, res) => {
       title: aiResult.title || roadmap.title,
       description: aiResult.description || roadmap.description,
       modules: aiResult.modules || [],
+      recommendedBooks: aiResult.recommendedBooks || [],
       totalLessons,
       completedLessons: 0,
       progress: 0
@@ -78,6 +80,67 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
+// @route   POST /api/courses/:id/lesson/:moduleIndex/:lessonIndex/generate
+// @desc    Generate content for a single lesson (on-demand)
+router.post('/:id/lesson/:moduleIndex/:lessonIndex/generate', protect, async (req, res) => {
+  try {
+    const course = await Course.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    const moduleIdx = parseInt(req.params.moduleIndex);
+    const lessonIdx = parseInt(req.params.lessonIndex);
+
+    if (!course.modules[moduleIdx] || !course.modules[moduleIdx].lessons[lessonIdx]) {
+      return res.status(400).json({ success: false, message: 'Invalid module or lesson index' });
+    }
+
+    const lesson = course.modules[moduleIdx].lessons[lessonIdx];
+    const moduleTitle = course.modules[moduleIdx].title;
+
+    // Generate content via AI
+    const content = await generateLessonContent(course.title, moduleTitle, lesson.title);
+
+    // Update lesson
+    lesson.content = content;
+    lesson.contentGenerated = true;
+    await course.save();
+
+    res.json({ success: true, data: course });
+  } catch (error) {
+    console.error('Lesson content generation error:', error);
+    res.status(500).json({ success: false, message: 'Failed to generate lesson content: ' + error.message });
+  }
+});
+
+// @route   DELETE /api/courses/:id/lesson/:moduleIndex/:lessonIndex/content
+// @desc    Delete content for a single lesson (allows regeneration)
+router.delete('/:id/lesson/:moduleIndex/:lessonIndex/content', protect, async (req, res) => {
+  try {
+    const course = await Course.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    const moduleIdx = parseInt(req.params.moduleIndex);
+    const lessonIdx = parseInt(req.params.lessonIndex);
+
+    if (!course.modules[moduleIdx] || !course.modules[moduleIdx].lessons[lessonIdx]) {
+      return res.status(400).json({ success: false, message: 'Invalid module or lesson index' });
+    }
+
+    const lesson = course.modules[moduleIdx].lessons[lessonIdx];
+    lesson.content = '';
+    lesson.contentGenerated = false;
+    await course.save();
+
+    res.json({ success: true, data: course, message: 'Lesson content deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // @route   PUT /api/courses/:id/lesson/:moduleIndex/:lessonIndex/complete
 // @desc    Mark a lesson as completed
 router.put('/:id/lesson/:moduleIndex/:lessonIndex/complete', protect, async (req, res) => {
@@ -95,7 +158,6 @@ router.put('/:id/lesson/:moduleIndex/:lessonIndex/complete', protect, async (req
     }
 
     const lesson = course.modules[moduleIdx].lessons[lessonIdx];
-    const wasCompleted = lesson.completed;
     lesson.completed = !lesson.completed; // Toggle
 
     // Recalculate progress
