@@ -7,6 +7,7 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
+const { verifyConnection } = require('./services/mailer');
 
 const dns = require('dns');
 
@@ -50,6 +51,18 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Learnify API is running', timestamp: new Date().toISOString() });
 });
 
+// Mail health check (diagnostic — remove if not needed)
+app.get('/api/health/mail', async (req, res) => {
+  const ok = await verifyConnection();
+  res.json({
+    success: ok,
+    message: ok ? 'SMTP connection OK' : 'SMTP connection FAILED — check logs',
+    mailUser: process.env.MAIL_USER ? `${process.env.MAIL_USER.slice(0, 4)}***` : 'NOT SET',
+    mailHost: process.env.MAIL_HOST || 'smtp.gmail.com',
+    nodeEnv: process.env.NODE_ENV || 'not set'
+  });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -57,6 +70,9 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Learnify Server running on port ${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`Learnify Server running on port ${PORT}`);
+  // Verify SMTP connection on startup — logs result to Render console
+  await verifyConnection();
 });
+

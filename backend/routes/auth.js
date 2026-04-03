@@ -2,10 +2,10 @@ const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
 const emailValidator = require('deep-email-validator');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { sendMail } = require('../services/mailer');
 
 const router = express.Router();
 
@@ -25,22 +25,28 @@ function hashOTP(otp) {
   return crypto.createHash('sha256').update(otp).digest('hex');
 }
 
-// Send OTP email
-async function sendOTPEmail(email, otp, name) {
-  const transporter = nodemailer.createTransport({
-    // service: process.env.MAIL_SERVICE || 'gmail',
-    host: process.env.MAIL_HOST || 'smtp.gmail.com',
-    port: process.env.MAIL_PORT || 465,
-    secure: true,
-    family: 4, // Force IPv4 to bypass Render's IPv6 outbound block
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS
-    }
+// Send OTP email (registration)
+async function sendRegistrationOTP(email, otp, name) {
+  await sendMail({
+    to: email,
+    subject: 'Learnify — Verify Your Email',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0a0e27;color:#e8eaf6;border-radius:16px;">
+        <h2 style="color:#667eea;margin:0 0 8px;">🔐 Email Verification</h2>
+        <p style="color:#9fa8da;margin:0 0 24px;">Hi ${name}, use the OTP below to verify your email.</p>
+        <div style="background:#111638;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
+          <span style="font-size:36px;font-weight:800;letter-spacing:8px;color:#667eea;">${otp}</span>
+        </div>
+        <p style="color:#9fa8da;font-size:13px;margin:0 0 4px;">This code expires in <strong>15 minutes</strong>.</p>
+        <p style="color:#616896;font-size:12px;margin:0;">If you didn't request this, please ignore this email.</p>
+      </div>
+    `
   });
+}
 
-  await transporter.sendMail({
-    from: `"Learnify" <${process.env.MAIL_USER}>`,
+// Send OTP email (password reset)
+async function sendPasswordResetOTP(email, otp, name) {
+  await sendMail({
     to: email,
     subject: 'Learnify — Password Reset OTP',
     html: `
@@ -95,16 +101,18 @@ router.post('/register-send-otp', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide name and email' });
     }
 
-    // Still validate email via deep-email-validator
-    const { valid } = await emailValidator.validate({
+    // Validate email — disable MX lookup in production (Render DNS can fail)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const { valid, reason } = await emailValidator.validate({
       email: email,
       validateRegex: true,
-      validateMx: true,
+      validateMx: !isProduction, // MX lookup fails on Render
       validateTypo: true,
       validateDisposable: true,
       validateSMTP: false
     });
     if (!valid) {
+      console.warn(`[AUTH] Email validation failed for ${email}: ${reason}`);
       return res.status(400).json({ success: false, message: 'Please provide a valid, deliverable email address' });
     }
 
@@ -114,7 +122,13 @@ router.post('/register-send-otp', async (req, res) => {
     }
 
     const otp = generateOTP();
-    await sendOTPEmail(email, otp, name);
+
+    try {
+      await sendRegistrationOTP(email, otp, name);
+    } catch (mailErr) {
+      console.error('[AUTH] Registration OTP email failed:', mailErr.message);
+      return res.status(500).json({ success: false, message: 'Failed to send verification email. Please try again.' });
+    }
 
     const otpToken = jwt.sign(
       { name, email, hashedOtp: hashOTP(otp) }, 
@@ -124,6 +138,7 @@ router.post('/register-send-otp', async (req, res) => {
 
     res.json({ success: true, message: 'OTP sent to email', registerToken: otpToken });
   } catch (error) {
+    console.error('[AUTH] register-send-otp error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -295,9 +310,9 @@ router.post('/forgot-password', async (req, res) => {
 
     // Send OTP email
     try {
-      await sendOTPEmail(user.email, otp, user.name);
+      await sendPasswordResetOTP(user.email, otp, user.name);
     } catch (mailErr) {
-      console.error('Failed to send OTP email:', mailErr.message);
+      console.error('[AUTH] Password reset OTP email failed:', mailErr.message);
       return res.status(500).json({ success: false, message: 'Failed to send OTP email. Please try again.' });
     }
 
